@@ -1080,9 +1080,8 @@ def plot_results(start=0, stop=0, bucket='', id=(), results_file=None):  # from 
                 ax[i].set_title(s[i])
                 # if i in [5, 6, 7]:  # share train and val loss y axes
                 #     ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])
-        except e:
+        except:
             print('Warning: Plotting error for %s, skipping file' % f)
-            print(e)
 
     ax[1].legend()
     fig.savefig(results_file.replace('.txt', '.png'), dpi=200)
