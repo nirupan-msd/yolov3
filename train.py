@@ -182,7 +182,8 @@ def train(hyp):
                                   hyp=hyp,  # augmentation hyperparameters
                                   rect=opt.rect,  # rectangular training
                                   cache_images=opt.cache_images,
-                                  single_cls=opt.single_cls)
+                                  single_cls=opt.single_cls,
+                                  num_classes=nc)
 
     # Dataloader
     batch_size = min(batch_size, len(dataset))
@@ -200,7 +201,8 @@ def train(hyp):
                                                                  rect=True,
                                                                  cache_images=opt.cache_images,
                                                                  single_cls=opt.single_cls,
-                                                                 set_type='valid'),
+                                                                 set_type='valid',
+                                                                 num_classes=nc),
                                              batch_size=batch_size,
                                              num_workers=nw,
                                              pin_memory=True,
