@@ -257,7 +257,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
 
 class LoadImagesAndLabels(Dataset):  # for training/testing
     def __init__(self, path, img_size=416, batch_size=16, augment=False, hyp=None, rect=False, image_weights=False,
-                 cache_images=False, single_cls=False):
+                 cache_images=False, single_cls=False, set_type='train'):
         try:
             path = str(Path(path))  # os-agnostic
             parent = str(Path(path).parent) + os.sep
@@ -329,7 +329,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.labels = [np.zeros((0, 5), dtype=np.float32)] * n
         create_datasubset, extract_bounding_boxes, labels_loaded = False, False, False
         nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, datasubset, duplicate
-        np_labels_path = str(Path(self.label_files[0]).parent) + '.npy'  # saved labels in *.npy file
+        np_labels_path = str(Path(self.label_files[0]).parent) + '_' + set_type + '.npy'  # saved labels in *.npy file
         if os.path.isfile(np_labels_path):
             s = np_labels_path  # print string
             x = np.load(np_labels_path, allow_pickle=True)
