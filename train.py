@@ -348,7 +348,7 @@ def train(hyp):
                         tb_pr_packet["PR/Epoch/" + cls] = value
 
                 for key, val in tb_packet.items():
-                    self.tb_writer.add_scalars(key, val, epoch)
+                    tb_writer.add_scalars(key, val, epoch)
                 walltime = time.time()
                 for key, val in tb_pr_packet.items():  # PR
                     # val = val.reshape(val.shape[0], 1)
