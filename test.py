@@ -232,7 +232,7 @@ def test(cfg,
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist())), class_wise_metric, cum_pr, maps
+    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), class_wise_metric, cum_pr, maps
 
 
 if __name__ == '__main__':
