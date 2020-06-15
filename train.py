@@ -307,29 +307,49 @@ def train(hyp):
         final_epoch = epoch + 1 == epochs
         if not opt.notest or final_epoch:  # Calculate mAP
             is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
-            results, maps = test.test(cfg,
-                                      data,
-                                      batch_size=batch_size,
-                                      imgsz=imgsz_test,
-                                      model=ema.ema,
-                                      save_json=final_epoch and is_coco,
-                                      single_cls=opt.single_cls,
-                                      dataloader=testloader,
-                                      multi_label=ni > n_burn)
+            results, class_wise_metric, cum_pr, maps = test.test(cfg,
+                                                                 data,
+                                                                 batch_size=batch_size,
+                                                                 imgsz=imgsz_test,
+                                                                 model=ema.ema,
+                                                                 save_json=final_epoch and is_coco,
+                                                                 single_cls=opt.single_cls,
+                                                                 dataloader=testloader,
+                                                                 multi_label=ni > n_burn)
 
         # Write
         with open(results_file, 'a') as f:
-            f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+            f.write(s + '%10.3g' * 8 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls, total)
         if len(opt.name) and opt.bucket:
             os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
 
         # Tensorboard
         if tb_writer:
-            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss',
-                    'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/F1',
-                    'val/giou_loss', 'val/obj_loss', 'val/cls_loss']
-            for x, tag in zip(list(mloss[:-1]) + list(results), tags):
+            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss', 'train/total_loss',
+                    'metrics/Precision', 'metrics/Recall', 'metrics/mAP@0.5', 'metrics/F1',
+                    'val/giou_loss', 'val/obj_loss', 'val/cls_loss', 'val/total_loss']
+            for x, tag in zip(list(mloss) + list(results), tags):
                 tb_writer.add_scalar(tag, x, epoch)
+
+            for cls, pkt in class_wise_metric.items():
+                tb_packet = dict()  # class wise metrics
+                tb_pr_packet = dict()  # class wise PR
+                for key, value in pkt.items():
+                    if key != 'cf_matrix':
+                        tb_packet["Epoch/" + key + "/" + cls] = value
+                    else:
+                        tb_pr_packet["PR/Epoch/" + cls] = value
+
+                logger.save_tb_log('add_scalar', tb_packet, epoch)
+                logger.save_tb_log('add_pr_curve_raw', tb_pr_packet, epoch)
+                del tb_packet
+                del tb_pr_packet
+
+            tb_packet = dict()  # PR
+            for key, value in cum_pr.items():
+                tb_packet[key] = value
+            logger.save_tb_log('add_pr_curve_raw', tb_packet, epoch)
+            del tb_packet
 
         # Update best mAP
         fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
@@ -394,6 +414,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
+    parser.add_argument('--folder', type=str, help='folder name to store results and weights')
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
     check_git_status()
