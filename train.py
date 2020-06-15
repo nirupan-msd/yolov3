@@ -347,15 +347,21 @@ def train(hyp):
                     else:
                         tb_pr_packet["PR/Epoch/" + cls] = value
 
-                logger.save_tb_log('add_scalar', tb_packet, epoch)
-                logger.save_tb_log('add_pr_curve_raw', tb_pr_packet, epoch)
+                for key, val in tb_packet.items():
+                    self.tb_writer.add_scalars(key, val, epoch)
+                walltime = time.time()
+                for key, val in tb_pr_packet.items():  # PR
+                    # val = val.reshape(val.shape[0], 1)
+                    tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
+                                               val[4], val[5], global_step=epoch, walltime=walltime)
                 del tb_packet
                 del tb_pr_packet
 
-            tb_packet = dict()  # PR
-            for key, value in cum_pr.items():
-                tb_packet[key] = value
-            logger.save_tb_log('add_pr_curve_raw', tb_packet, epoch)
+            walltime = time.time()
+            for key, val in cum_pr.items():  # PR
+                # val = val.reshape(val.shape[0], 1)
+                tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
+                                           val[4], val[5], global_step=epoch, walltime=walltime)
             del tb_packet
 
         # Update best mAP
