@@ -362,7 +362,6 @@ def train(hyp):
                 # val = val.reshape(val.shape[0], 1)
                 tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
                                            val[4], val[5], global_step=epoch, walltime=walltime)
-            del tb_packet
 
         # Update best mAP
         fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
