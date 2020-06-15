@@ -67,6 +67,7 @@ def train(hyp):
     last = wdir + 'last.pt'
     best = wdir + 'best.pt'
     results_file = wdir + 'results.txt'
+    os.makedirs(wdir)
     print('Weights and Results logged to `%s`!' % wdir)
 
     # Image Sizes
