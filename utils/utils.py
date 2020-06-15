@@ -1053,20 +1053,22 @@ def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_re
         fig.savefig(f.replace('.txt', '.png'), dpi=200)
 
 
-def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import *; plot_results()
+def plot_results(start=0, stop=0, bucket='', id=(), results_file=None):  # from utils.utils import *; plot_results()
     # Plot training 'results*.txt' as seen in https://github.com/ultralytics/yolov3#training
     fig, ax = plt.subplots(2, 5, figsize=(12, 6), tight_layout=True)
     ax = ax.ravel()
-    s = ['GIoU', 'Objectness', 'Classification', 'Precision', 'Recall',
-         'val GIoU', 'val Objectness', 'val Classification', 'mAP@0.5', 'F1']
+    s = ['GIoU', 'Objectness', 'Classification', 'Total', 'Precision', 'Recall',
+         'val GIoU', 'val Objectness', 'val Classification', 'val Total', 'mAP@0.5', 'F1']
+    if not results_file:
+        results_file = 'results.txt'
     if bucket:
         os.system('rm -rf storage.googleapis.com')
         files = ['https://storage.googleapis.com/%s/results%g.txt' % (bucket, x) for x in id]
     else:
-        files = glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')
+        files = glob.glob(results_file)
     for f in sorted(files):
         try:
-            results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
+            results = np.loadtxt(f, usecols=[2, 3, 4, 5, 9, 10, 13, 14, 15, 16, 11, 12], ndmin=2).T
             n = results.shape[1]  # number of rows
             x = range(start, min(stop, n) if stop else n)
             for i in range(10):
@@ -1082,4 +1084,4 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import 
             print('Warning: Plotting error for %s, skipping file' % f)
 
     ax[1].legend()
-    fig.savefig('results.png', dpi=200)
+    fig.savefig(results_file.replace('.txt', '.png'), dpi=200)

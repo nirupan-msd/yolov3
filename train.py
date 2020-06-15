@@ -20,7 +20,7 @@ except:
 wdir = 'weights' + os.sep  # weights dir
 last = wdir + 'last.pt'
 best = wdir + 'best.pt'
-results_file = 'results.txt'
+results_file = wdir + 'results.txt'
 
 # Hyperparameters
 hyp = {'giou': 3.54,  # giou loss gain
@@ -62,6 +62,12 @@ def train(hyp):
     accumulate = max(round(64 / batch_size), 1)  # accumulate n times before optimizer update (bs 64)
     weights = opt.weights  # initial training weights
     imgsz_min, imgsz_max, imgsz_test = opt.img_size  # img sizes (min, max, test)
+
+    wdir += opt.folder + os.sep
+    last = wdir + 'last.pt'
+    best = wdir + 'best.pt'
+    results_file = wdir + 'results.txt'
+    print('Weights and Results logged to `%s`!' % wdir)
 
     # Image Sizes
     gs = 64  # (pixels) grid size
@@ -320,6 +326,8 @@ def train(hyp):
         # Write
         with open(results_file, 'a') as f:
             f.write(s + '%10.3g' * 8 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls, total)
+        if not opt.evolve:
+            plot_results(results_file=results_file)  # save as results.png
         if len(opt.name) and opt.bucket:
             os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
 
@@ -386,8 +394,6 @@ def train(hyp):
                 strip_optimizer(f2) if ispt else None  # strip optimizer
                 os.system('gsutil cp %s gs://%s/weights' % (f2, opt.bucket)) if opt.bucket and ispt else None  # upload
 
-    if not opt.evolve:
-        plot_results()  # save as results.png
     print('%g epochs completed in %.3f hours.\n' % (epoch - start_epoch + 1, (time.time() - t0) / 3600))
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
