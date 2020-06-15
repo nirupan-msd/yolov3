@@ -1068,7 +1068,7 @@ def plot_results(start=0, stop=0, bucket='', id=(), results_file=None):  # from 
         files = glob.glob(results_file)
     for f in sorted(files):
         try:
-            results = np.loadtxt(f, usecols=[2, 3, 4, 5, 9, 10, 13, 14, 15, 16, 11, 12], ndmin=2).T
+            results = np.loadtxt(f, usecols=[2, 3, 4, 5, 8, 9, 12, 13, 14, 15, 10, 11], ndmin=2).T
             n = results.shape[1]  # number of rows
             x = range(start, min(stop, n) if stop else n)
             for i in range(10):
