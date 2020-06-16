@@ -194,7 +194,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls, names, logdir):
         ax.set_xlim(0, 1.01)
         ax.set_ylim(0, 1.01)
         fig.tight_layout()
-        fig.savefig(plot_dir + 'PR_curve_%s.png' % names[c], dpi=300)
+        fig.savefig(plot_dir + 'PR_curve_%s.png' % names[c.astype('int32')], dpi=300)
 
         # canvas = FigureCanvasAgg(fig)
         # canvas.draw()
