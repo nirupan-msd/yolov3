@@ -187,8 +187,8 @@ def ap_per_class(tp, conf, pred_cls, target_cls, names, logdir):
             # AP from recall-precision curve
             for j in range(tp.shape[1]):
                 ap[ci, j] = compute_ap(recall[:, j], precision[:, j])
-
-            ax.plot(recall, precision)
+                ax.plot(recall[:, j:j+1], precision[:, j:j+1], label="IoU=%s" % j)
+            ax.legend()
         ax.set_xlabel('Recall')
         ax.set_ylabel('Precision')
         ax.set_xlim(0, 1.01)

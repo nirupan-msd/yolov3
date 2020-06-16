@@ -56,8 +56,8 @@ def test(cfg,
     nc = 1 if single_cls else int(data['classes'])  # number of classes
     path = data['valid']  # path to test images
     names = load_classes(data['names'])  # class names
-    iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
-    iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
+    iouv = torch.linspace(0.3, 0.7, 5).to(device)  # iou vector for mAP@0.3:0.7
+    # iouv = iouv[0].view(1)  # comment for mAP@0.3:0.7
     niou = iouv.numel()
 
     # Dataloader
