@@ -195,7 +195,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
         canvas = FigureCanvasAgg(fig)
         canvas.draw()
         width, height = fig.get_size_inches() * fig.get_dpi()
-        img = np.fromstring(canvas.to_string_rgb(), dtype='uint8').reshape(height, width, 3)
+        img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(height, width, 3)
 
         pr[ci] = img
         fig.close()
