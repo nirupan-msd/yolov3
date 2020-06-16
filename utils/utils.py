@@ -157,11 +157,13 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
     pr_score = 0.5  # score to evaluate P and R https://github.com/ultralytics/yolov3/issues/898
     s = [unique_classes.shape[0], tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
     ap, p, r = np.zeros(s), np.zeros(s), np.zeros(s)
-    cf_matrix = list()
+    pr = np.zeros(s[0])
     for ci, c in enumerate(unique_classes):
         i = pred_cls == c
         n_gt = (target_cls == c).sum()  # Number of ground truth objects
         n_p = i.sum()  # Number of predicted objects
+
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
 
         if n_p == 0 or n_gt == 0:
             continue
@@ -182,34 +184,19 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
             for j in range(tp.shape[1]):
                 ap[ci, j] = compute_ap(recall[:, j], precision[:, j])
 
-            cf_matrix.append([tpc, fpc, np.zeros(tpc.shape), n_gt - tpc, precision, recall])
-
-            # Plot
-            # fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-            # ax.plot(recall, precision)
-            # ax.set_xlabel('Recall')
-            # ax.set_ylabel('Precision')
-            # ax.set_xlim(0, 1.01)
-            # ax.set_ylim(0, 1.01)
-            # fig.tight_layout()
-            # fig.savefig('PR_curve.png', dpi=300)
+            ax.plot(recall, precision)
+        ax.set_xlabel('Recall')
+        ax.set_ylabel('Precision')
+        ax.set_xlim(0, 1.01)
+        ax.set_ylim(0, 1.01)
+        fig.tight_layout()
+        pr[ci] = fig
+        # fig.savefig('PR_curve.png', dpi=300)
 
     # Compute F1 score (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
 
-    cf_matrix = np.array(cf_matrix)
-    cum_cf_matrix = np.zeros((6, max([len(e) for e in cf_matrix[:, 0]])))
-    for row in cf_matrix:
-        row_len = len(row[0])
-        row = np.array([row[i][0] for i in range(6)]).reshape(6, 1)
-        cum_cf_matrix[:, :row_len] = cum_cf_matrix[:, :row_len] + row
-
-    cum_cf_matrix[:-2] = cum_cf_matrix[:-2].cumsum(axis=1)
-    cum_cf_matrix[-2:, :] = cum_cf_matrix[-2:, :] / len(unique_classes)
-    cum_cf_matrix = cum_cf_matrix.cumsum(axis=1)
-    cum_cf_matrix[-2:, :] = cum_cf_matrix[-2:, :] / len(unique_classes)
-
-    return p, r, ap, f1, unique_classes.astype('int32'), cf_matrix, cum_cf_matrix
+    return p, r, ap, f1, unique_classes.astype('int32'), pr
 
 
 def compute_ap(recall, precision):

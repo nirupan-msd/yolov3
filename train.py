@@ -312,15 +312,15 @@ def train(hyp):
         final_epoch = epoch + 1 == epochs
         if not opt.notest or final_epoch:  # Calculate mAP
             is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
-            results, class_wise_metric, cum_pr, maps = test.test(cfg,
-                                                                 data,
-                                                                 batch_size=batch_size,
-                                                                 imgsz=imgsz_test,
-                                                                 model=ema.ema,
-                                                                 save_json=final_epoch and is_coco,
-                                                                 single_cls=opt.single_cls,
-                                                                 dataloader=testloader,
-                                                                 multi_label=ni > n_burn)
+            results, class_wise_metric, maps = test.test(cfg,
+                                                         data,
+                                                         batch_size=batch_size,
+                                                         imgsz=imgsz_test,
+                                                         model=ema.ema,
+                                                         save_json=final_epoch and is_coco,
+                                                         single_cls=opt.single_cls,
+                                                         dataloader=testloader,
+                                                         multi_label=ni > n_burn)
 
         # Write
         with open(results_file, 'a') as f:
@@ -342,26 +342,27 @@ def train(hyp):
                 tb_packet = dict()  # class wise metrics
                 tb_pr_packet = dict()  # class wise PR
                 for key, value in pkt.items():
-                    if key != 'cf_matrix':
+                    if key != 'PR':
                         tb_packet["Epoch/" + key + "/" + cls] = value
                     else:
-                        tb_pr_packet["PR/Epoch/" + cls] = value
+                        tb_pr_packet["PR_Epoch_%s/" % epoch + cls] = value
 
                 for key, val in tb_packet.items():
                     tb_writer.add_scalar(key, val, epoch)
                 walltime = time.time()
                 for key, val in tb_pr_packet.items():  # PR
                     # val = val.reshape(val.shape[0], 1)
-                    tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
-                                               val[4], val[5], global_step=epoch, walltime=walltime)
+                    tb_writer.add_image(key, val, epoch)
+                    # tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
+                    #                            val[4], val[5], global_step=epoch, walltime=walltime)
                 del tb_packet
                 del tb_pr_packet
 
-            walltime = time.time()
-            for key, val in cum_pr.items():  # PR
-                # val = val.reshape(val.shape[0], 1)
-                tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
-                                           val[4], val[5], global_step=epoch, walltime=walltime)
+            # walltime = time.time()
+            # for key, val in cum_pr.items():  # PR
+            #     # val = val.reshape(val.shape[0], 1)
+            #     tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
+            #                                val[4], val[5], global_step=epoch, walltime=walltime)
 
         # Update best mAP
         fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
