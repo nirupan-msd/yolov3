@@ -20,7 +20,8 @@ def test(cfg,
          augment=False,
          model=None,
          dataloader=None,
-         multi_label=True):
+         multi_label=True,
+         logdir="./"):
     # Initialize/load model and set device
     if model is None:
         device = torch_utils.select_device(opt.device, batch_size=batch_size)
@@ -55,13 +56,13 @@ def test(cfg,
     nc = 1 if single_cls else int(data['classes'])  # number of classes
     path = data['valid']  # path to test images
     names = load_classes(data['names'])  # class names
-    iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
-    iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
+    iouv = torch.linspace(0.3, 0.7, 5).to(device)  # iou vector for mAP@0.3:0.7
+    # iouv = iouv[0].view(1)  # comment for mAP@0.3:0.7
     niou = iouv.numel()
 
     # Dataloader
     if dataloader is None:
-        dataset = LoadImagesAndLabels(path, imgsz, batch_size, rect=True, single_cls=opt.single_cls)
+        dataset = LoadImagesAndLabels(path, imgsz, batch_size, rect=True, single_cls=opt.single_cls, set_type='valid', num_classes=len(names))
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
@@ -75,7 +76,7 @@ def test(cfg,
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
-    loss = torch.zeros(3, device=device)
+    loss = torch.zeros(4, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
     for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
@@ -92,7 +93,7 @@ def test(cfg,
 
             # Compute loss
             if hasattr(model, 'hyp'):  # if model has loss hyperparameters
-                loss += compute_loss(train_out, targets, model)[1][:3]  # GIoU, obj, cls
+                loss += compute_loss(train_out, targets, model)[1]  # GIoU, obj, cls, total
 
             # Run NMS
             t = torch_utils.time_synchronized()
@@ -172,10 +173,16 @@ def test(cfg,
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
+    class_wise_metric = dict()
+    cum_pr = dict()
     if len(stats):
-        p, r, ap, f1, ap_class = ap_per_class(*stats)
+        p, r, ap, f1, ap_class = ap_per_class(*stats, names, logdir)
         if niou > 1:
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
+        for cls_index in ap_class:
+            class_wise_metric[names[cls_index]] = {'Precision': p[cls_index], 'Recall': r[cls_index],
+                                                   'mAP': ap[cls_index], 'F1': f1[cls_index]}
+
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
@@ -224,7 +231,7 @@ def test(cfg,
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), maps
+    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), class_wise_metric, maps
 
 
 if __name__ == '__main__':

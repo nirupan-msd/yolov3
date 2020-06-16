@@ -17,11 +17,6 @@ except:
     print('Apex recommended for faster mixed precision training: https://github.com/NVIDIA/apex')
     mixed_precision = False  # not installed
 
-wdir = 'weights' + os.sep  # weights dir
-last = wdir + 'last.pt'
-best = wdir + 'best.pt'
-results_file = 'results.txt'
-
 # Hyperparameters
 hyp = {'giou': 3.54,  # giou loss gain
        'cls': 37.4,  # cls loss gain
@@ -62,6 +57,13 @@ def train(hyp):
     accumulate = max(round(64 / batch_size), 1)  # accumulate n times before optimizer update (bs 64)
     weights = opt.weights  # initial training weights
     imgsz_min, imgsz_max, imgsz_test = opt.img_size  # img sizes (min, max, test)
+
+    wdir = 'weights' + os.sep + opt.folder + os.sep
+    last = wdir + 'last.pt'
+    best = wdir + 'best.pt'
+    results_file = wdir + 'results.txt'
+    os.makedirs(wdir)
+    print('Weights and Results logged to `%s`!' % wdir)
 
     # Image Sizes
     gs = 64  # (pixels) grid size
@@ -180,7 +182,8 @@ def train(hyp):
                                   hyp=hyp,  # augmentation hyperparameters
                                   rect=opt.rect,  # rectangular training
                                   cache_images=opt.cache_images,
-                                  single_cls=opt.single_cls)
+                                  single_cls=opt.single_cls,
+                                  num_classes=nc)
 
     # Dataloader
     batch_size = min(batch_size, len(dataset))
@@ -197,7 +200,9 @@ def train(hyp):
                                                                  hyp=hyp,
                                                                  rect=True,
                                                                  cache_images=opt.cache_images,
-                                                                 single_cls=opt.single_cls),
+                                                                 single_cls=opt.single_cls,
+                                                                 set_type='valid',
+                                                                 num_classes=nc),
                                              batch_size=batch_size,
                                              num_workers=nw,
                                              pin_memory=True,
@@ -307,29 +312,58 @@ def train(hyp):
         final_epoch = epoch + 1 == epochs
         if not opt.notest or final_epoch:  # Calculate mAP
             is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
-            results, maps = test.test(cfg,
-                                      data,
-                                      batch_size=batch_size,
-                                      imgsz=imgsz_test,
-                                      model=ema.ema,
-                                      save_json=final_epoch and is_coco,
-                                      single_cls=opt.single_cls,
-                                      dataloader=testloader,
-                                      multi_label=ni > n_burn)
+            results, class_wise_metric, maps = test.test(cfg,
+                                                         data,
+                                                         batch_size=batch_size,
+                                                         imgsz=imgsz_test,
+                                                         model=ema.ema,
+                                                         save_json=final_epoch and is_coco,
+                                                         single_cls=opt.single_cls,
+                                                         dataloader=testloader,
+                                                         multi_label=ni > n_burn,
+                                                         logdir=wdir)
 
         # Write
         with open(results_file, 'a') as f:
-            f.write(s + '%10.3g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+            f.write(s + '%10.3g' * 8 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls, total)
+        if not opt.evolve:
+            plot_results(results_file=results_file)  # save as results.png
         if len(opt.name) and opt.bucket:
             os.system('gsutil cp results.txt gs://%s/results/results%s.txt' % (opt.bucket, opt.name))
 
         # Tensorboard
         if tb_writer:
-            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss',
-                    'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/F1',
-                    'val/giou_loss', 'val/obj_loss', 'val/cls_loss']
-            for x, tag in zip(list(mloss[:-1]) + list(results), tags):
+            tags = ['train/giou_loss', 'train/obj_loss', 'train/cls_loss', 'train/total_loss',
+                    'metrics/Precision', 'metrics/Recall', 'metrics/mAP@0.5', 'metrics/F1',
+                    'val/giou_loss', 'val/obj_loss', 'val/cls_loss', 'val/total_loss']
+            for x, tag in zip(list(mloss) + list(results), tags):
                 tb_writer.add_scalar(tag, x, epoch)
+
+            for cls, pkt in class_wise_metric.items():
+                tb_packet = dict()  # class wise metrics
+                tb_pr_packet = dict()  # class wise PR
+                for key, value in pkt.items():
+                    if key != 'PR':
+                        tb_packet["Epoch/" + key + "/" + cls] = value
+                    else:
+                        tb_pr_packet["PR_Epoch_%s/" % epoch + cls] = value
+
+                for key, val in tb_packet.items():
+                    tb_writer.add_scalar(key, val, epoch)
+                walltime = time.time()
+                for key, val in tb_pr_packet.items():  # PR
+                    # val = val.reshape(val.shape[0], 1)
+                    tb_writer.add_image(key, val, epoch)
+                    # tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
+                    #                            val[4], val[5], global_step=epoch, walltime=walltime)
+                del tb_packet
+                del tb_pr_packet
+
+            # walltime = time.time()
+            # for key, val in cum_pr.items():  # PR
+            #     # val = val.reshape(val.shape[0], 1)
+            #     tb_writer.add_pr_curve_raw(key, val[0], val[1], val[2], val[3],
+            #                                val[4], val[5], global_step=epoch, walltime=walltime)
 
         # Update best mAP
         fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
@@ -366,8 +400,6 @@ def train(hyp):
                 strip_optimizer(f2) if ispt else None  # strip optimizer
                 os.system('gsutil cp %s gs://%s/weights' % (f2, opt.bucket)) if opt.bucket and ispt else None  # upload
 
-    if not opt.evolve:
-        plot_results()  # save as results.png
     print('%g epochs completed in %.3f hours.\n' % (epoch - start_epoch + 1, (time.time() - t0) / 3600))
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
@@ -394,6 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1 or cpu)')
     parser.add_argument('--adam', action='store_true', help='use adam optimizer')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
+    parser.add_argument('--folder', type=str, help='folder name to store results and weights')
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
     check_git_status()
