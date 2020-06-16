@@ -20,7 +20,8 @@ def test(cfg,
          augment=False,
          model=None,
          dataloader=None,
-         multi_label=True):
+         multi_label=True,
+         logdir="./"):
     # Initialize/load model and set device
     if model is None:
         device = torch_utils.select_device(opt.device, batch_size=batch_size)
@@ -175,13 +176,12 @@ def test(cfg,
     class_wise_metric = dict()
     cum_pr = dict()
     if len(stats):
-        p, r, ap, f1, ap_class, pr = ap_per_class(*stats)
+        p, r, ap, f1, ap_class = ap_per_class(*stats, names, logdir)
         if niou > 1:
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
         for cls_index in ap_class:
             class_wise_metric[names[cls_index]] = {'Precision': p[cls_index], 'Recall': r[cls_index],
-                                                   'mAP': ap[cls_index], 'F1': f1[cls_index],
-                                                   'PR': pr[cls_index]}
+                                                   'mAP': ap[cls_index], 'F1': f1[cls_index]}
 
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class

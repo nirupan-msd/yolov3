@@ -135,7 +135,7 @@ def clip_coords(boxes, img_shape):
     boxes[:, 3].clamp_(0, img_shape[0])  # y2
 
 
-def ap_per_class(tp, conf, pred_cls, target_cls):
+def ap_per_class(tp, conf, pred_cls, target_cls, names, logdir):
     """ Compute the average precision, given the recall and precision curves.
     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
     # Arguments
@@ -146,6 +146,9 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
     # Returns
         The average precision as computed in py-faster-rcnn.
     """
+
+    plot_dir = logdir + 'plots' + os.sep
+    os.makedirs(plot_dir, exist_ok=True)
 
     # Sort by objectness
     i = np.argsort(-conf)
@@ -191,15 +194,15 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
         ax.set_xlim(0, 1.01)
         ax.set_ylim(0, 1.01)
         fig.tight_layout()
+        fig.savefig(plot_dir + 'PR_curve_%s.png' % names[c], dpi=300)
 
-        canvas = FigureCanvasAgg(fig)
-        canvas.draw()
-        width, height = fig.get_size_inches() * fig.get_dpi()
-        img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
+        # canvas = FigureCanvasAgg(fig)
+        # canvas.draw()
+        # width, height = fig.get_size_inches() * fig.get_dpi()
+        # img = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
+        # pr[ci] = img
 
-        pr[ci] = img
         plt.close(fig)
-        # fig.savefig('PR_curve.png', dpi=300)
 
     # Compute F1 score (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
