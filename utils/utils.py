@@ -157,7 +157,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
     pr_score = 0.5  # score to evaluate P and R https://github.com/ultralytics/yolov3/issues/898
     s = [unique_classes.shape[0], tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
     ap, p, r = np.zeros(s), np.zeros(s), np.zeros(s)
-    pr = np.zeros(s[0])
+    pr = list([None] * s[0])
     for ci, c in enumerate(unique_classes):
         i = pred_cls == c
         n_gt = (target_cls == c).sum()  # Number of ground truth objects
