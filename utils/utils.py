@@ -12,6 +12,7 @@ from sys import platform
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
 import torch
 import torch.nn as nn
@@ -190,7 +191,14 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
         ax.set_xlim(0, 1.01)
         ax.set_ylim(0, 1.01)
         fig.tight_layout()
-        pr[ci] = fig
+
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        width, height = fig.get_size_inches() * fig.get_dpi()
+        img = np.fromstring(canvas.to_string_rgb(), dtype='uint8').reshape(height, width, 3)
+
+        pr[ci] = img
+        fig.close()
         # fig.savefig('PR_curve.png', dpi=300)
 
     # Compute F1 score (harmonic mean of precision and recall)
