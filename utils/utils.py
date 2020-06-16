@@ -161,7 +161,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls, names, logdir):
     pr_score = 0.5  # score to evaluate P and R https://github.com/ultralytics/yolov3/issues/898
     s = [unique_classes.shape[0], tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
     ap, p, r = np.zeros(s), np.zeros(s), np.zeros(s)
-    pr = list([None] * s[0])
+    # pr = list([None] * s[0])
     for ci, c in enumerate(unique_classes):
         i = pred_cls == c
         n_gt = (target_cls == c).sum()  # Number of ground truth objects
@@ -207,7 +207,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls, names, logdir):
     # Compute F1 score (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
 
-    return p, r, ap, f1, unique_classes.astype('int32'), pr
+    return p, r, ap, f1, unique_classes.astype('int32')
 
 
 def compute_ap(recall, precision):
